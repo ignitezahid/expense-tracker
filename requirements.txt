@@ -1,0 +1,5 @@
+# Personal Expense Tracker
+# Core dependencies (standard library only — no external packages needed!)
+# 
+# To run: python main.py --help
+# To test: python -m pytest tests/ -v
