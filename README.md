@@ -99,13 +99,6 @@ personal-expense-tracker/
 python -m unittest tests/test_tracker.py -v
 ```
 
-## Building an .exe
-
-```
-pip install pyinstaller
-pyinstaller --onefile --name expense-tracker main.py
-```
-
 ## License
 
 MIT
