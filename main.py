@@ -1,76 +1,62 @@
-#!/usr/bin/env python3
-"""Personal Expense Tracker — Beautiful Interactive CLI.
-
-Track, categorize, and report your expenses from the terminal in style.
-Created by ignitezahid.
-
-Usage:
-    python main.py
-"""
-
+"""Personal Expense Tracker - interactive CLI.
+Created by ignitezahid."""
 import os
 import sys
 from datetime import datetime
 
 from tracker import ExpenseTracker
 from styles import (
-    Color, Icon, enable_windows_ansi, section,
-    bold, dim, green, red, yellow, cyan, blue, magenta,
-    money, danger, success, error, warning, highlight,
-    fmt_money, fmt_money_colored, fmt_percent, fmt_bar,
-    horizontal_line, terminal_width,
+    enable_ansi, section,
+    bold, dim, green, red, yellow, cyan, blue,
+    money, danger, success, error, warning,
+    fmt_money, fmt_money_c, fmt_pct, fmt_bar,
+    term_width, ICO_HLINE, ICO_VLINE, ICO_STAR,
+    ICO_BULLET, ICO_ARROW, ICO_MONEY, ICO_SHADE,
+    ICO_TL, ICO_TR, ICO_BL, ICO_BR,
+    ICO_TD, ICO_TU, ICO_TRT, ICO_TLT, ICO_CRS,
 )
 
 
-# ─── Screen Management ─────────────────────────────────────────────────────
-
 def clear():
-    """Clear screen and show title bar."""
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def print_app_header():
-    """Print the app title header."""
-    width = min(terminal_width() - 2, 60)
+def header():
+    w = min(term_width() - 2, 60)
     print()
-    print(f"  {bold(dim(Icon.H_LINE * width))}")
-    print(f"  {bold(cyan(Icon.STAR + ' PERSONAL EXPENSE TRACKER ' + Icon.STAR))}")
+    print(f"  {bold(dim(ICO_HLINE * w))}")
+    print(f"  {bold(cyan(ICO_STAR + ' PERSONAL EXPENSE TRACKER ' + ICO_STAR))}")
     print(f"  {dim('  Track your spending like a pro')}")
-    print(f"  {bold(dim(Icon.H_LINE * width))}")
+    print(f"  {bold(dim(ICO_HLINE * w))}")
 
 
-def print_status_bar(tracker):
-    """Show a compact status bar with key metrics."""
+def status_bar(tracker):
     expenses = tracker.get_all_expenses()
     count = len(expenses)
     total = tracker.get_total_spent()
     budgets = tracker.get_budgets()
 
     parts = [f"{dim('Expenses:')} {bold(str(count))}"]
-    parts.append(f"{dim('Total:')} {fmt_money_colored(total)}")
+    parts.append(f"{dim('Total:')} {fmt_money_c(total)}")
 
     if budgets:
         progress = tracker.get_budget_progress()
         total_budget = sum(b.get("budget", 0) for b in progress)
         if total_budget > 0:
-            total_spent = sum(b.get("spent", 0) for b in progress)
-            pct = (total_spent / total_budget) * 100
-            parts.append(f"{dim('Budget:')} {fmt_percent(pct)}")
+            ts = sum(b.get("spent", 0) for b in progress)
+            pct = (ts / total_budget) * 100
+            parts.append(f"{dim('Budget:')} {fmt_pct(pct)}")
 
     print("  " + "  |  ".join(parts))
     print()
 
 
-# ─── Input Helpers ─────────────────────────────────────────────────────────
-
 def pause():
-    """Wait for Enter with styled prompt."""
     print()
     input(f"  {dim('Press Enter to continue...')}")
 
 
-def prompt(text: str, default: str = None, required: bool = False) -> str:
-    """Get user input with a styled prompt."""
+def prompt(text, default=None, required=False):
     if default is not None:
         full = f"  {bold(text)} [{dim(default)}]: "
     else:
@@ -85,8 +71,7 @@ def prompt(text: str, default: str = None, required: bool = False) -> str:
         return val
 
 
-def prompt_int(text: str, min_val=None, max_val=None, default=None) -> int:
-    """Get a validated integer."""
+def prompt_int(text, min_val=None, max_val=None, default=None):
     while True:
         raw = prompt(text, default=str(default) if default else None)
         try:
@@ -102,8 +87,7 @@ def prompt_int(text: str, min_val=None, max_val=None, default=None) -> int:
             print(f"  {warning('Please enter a valid number.')}")
 
 
-def prompt_float(text: str, min_val=0) -> float:
-    """Get a validated float."""
+def prompt_float(text, min_val=0):
     while True:
         raw = prompt(text)
         try:
@@ -116,8 +100,7 @@ def prompt_float(text: str, min_val=0) -> float:
             print(f"  {warning('Please enter a valid number.')}")
 
 
-def prompt_date(text: str = "Date (YYYY-MM-DD)", default: str = None) -> str:
-    """Get a valid date string."""
+def prompt_date(text="Date (YYYY-MM-DD)", default=None):
     if default is None:
         default = datetime.now().strftime("%Y-%m-%d")
     while True:
@@ -131,98 +114,66 @@ def prompt_date(text: str = "Date (YYYY-MM-DD)", default: str = None) -> str:
             print(f"  {warning('Invalid format. Use YYYY-MM-DD.')}")
 
 
-# ─── Table Drawing ─────────────────────────────────────────────────────────
-
-def print_table(headers: list, rows: list, col_styles: list = None):
-    """Draw a formatted table with borders, headers, and styled cells.
-
-    All header and cell values must be PLAIN strings (no ANSI codes).
-    Styling is applied AFTER width formatting for perfect alignment.
-
-    Args:
-        headers: List of plain header strings
-        rows: List of lists of plain cell strings
-        col_styles: Optional list of style functions per column.
-                    None = no styling for that column.
-    """
-    num_cols = len(headers)
+def print_table(headers, rows, col_styles=None):
+    n = len(headers)
     if col_styles is None:
-        col_styles = [None] * num_cols
+        col_styles = [None] * n
 
-    # Calculate column widths from plain text only
-    col_widths = []
-    for i in range(num_cols):
+    widths = []
+    for i in range(n):
         w = len(str(headers[i]))
         for row in rows:
             if i < len(row):
                 w = max(w, len(str(row[i])))
-        col_widths.append(w + 2)  # 2 for padding spaces
+        widths.append(w + 2)
 
-    # Build separator lines
-    def make_sep(left, mid, right):
-        sep = left
-        for i, w in enumerate(col_widths):
-            sep += Icon.H_LINE * (w + 2)
-            if i < num_cols - 1:
-                sep += mid
-            else:
-                sep += right
-        return sep
+    def make_sep(l, m, r):
+        s = l
+        for i, w in enumerate(widths):
+            s += ICO_HLINE * (w + 2)
+            s += m if i < n - 1 else r
+        return s
 
-    sep_top = make_sep(Icon.CORNER_TL, Icon.T_DOWN, Icon.CORNER_TR)
-    sep_mid = make_sep(Icon.T_RIGHT, Icon.CROSS_S, Icon.T_LEFT)
-    sep_bot = make_sep(Icon.CORNER_BL, Icon.T_UP, Icon.CORNER_BR)
+    st = make_sep(ICO_TL, ICO_TD, ICO_TR)
+    sm = make_sep(ICO_TRT, ICO_CRS, ICO_TLT)
+    sb = make_sep(ICO_BL, ICO_TU, ICO_BR)
 
-    # Print top border
-    print(f"    {dim(sep_top)}")
+    print(f"    {dim(st)}")
 
-    # Print header row — format plain text to width, then style
     cells = []
     for i, h in enumerate(headers):
-        w = col_widths[i]
-        plain = f"{str(h):>{w}}"  # format to correct width as plain text
-        styled = bold(blue(plain))  # THEN apply style
-        cells.append(f" {styled} ")
-    print(f"    {Icon.V_LINE}" + f"{Icon.V_LINE}".join(cells) + f"{Icon.V_LINE}")
+        w = widths[i]
+        plain = f"{str(h):>{w}}"
+        cells.append(f" {bold(blue(plain))} ")
+    print(f"    {ICO_VLINE}" + f"{ICO_VLINE}".join(cells) + f"{ICO_VLINE}")
 
-    # Print header-data separator
-    print(f"    {dim(sep_mid)}")
+    print(f"    {dim(sm)}")
 
-    # Print data rows
     for row in rows:
         cells = []
-        for i in range(num_cols):
+        for i in range(n):
             val = str(row[i]) if i < len(row) else ""
-            w = col_widths[i]
-            plain = f"{val:>{w}}"  # format to correct width as plain text
-            style_fn = col_styles[i] if i < len(col_styles) else None
-            if style_fn:
-                styled = style_fn(plain)  # THEN apply style
-            else:
-                styled = plain
-            cells.append(f" {styled} ")
-        print(f"    {Icon.V_LINE}" + f"{Icon.V_LINE}".join(cells) + f"{Icon.V_LINE}")
+            w = widths[i]
+            plain = f"{val:>{w}}"
+            fn = col_styles[i] if i < len(col_styles) else None
+            cells.append(f" {fn(plain) if fn else plain} ")
+        print(f"    {ICO_VLINE}" + f"{ICO_VLINE}".join(cells) + f"{ICO_VLINE}")
 
-    # Print bottom border
-    print(f"    {dim(sep_bot)}")
+    print(f"    {dim(sb)}")
 
-
-# ─── Menu Handlers ─────────────────────────────────────────────────────────
 
 def menu_add(tracker):
-    """Interactive prompt to add an expense."""
     section("ADD EXPENSE")
-
-    categories_str = dim(", ".join(tracker.CATEGORIES))
-    print(f"  {bold('Categories:')} {categories_str}")
+    cats = dim(", ".join(tracker.CATEGORIES))
+    print(f"  {bold('Categories:')} {cats}")
     print()
 
     category = prompt("Category").capitalize()
     if category not in tracker.CATEGORIES:
-        msg = f"'{category}' added as custom category."
+        msg = f"'{category}' added as custom."
         print(f"  {warning(msg)}")
 
-    amount = prompt_float(f"Amount ({Icon.MONEY})")
+    amount = prompt_float(f"Amount ({ICO_MONEY})")
     description = prompt("Description", required=True)
     date = prompt_date()
 
@@ -233,21 +184,18 @@ def menu_add(tracker):
         print_expense_row(expense, indent=4)
     except ValueError as e:
         print(f"  {error(str(e))}")
-
     pause()
 
 
 def menu_list(tracker):
-    """List expenses with optional filters."""
     expenses = tracker.get_all_expenses()
     if not expenses:
-        print(f"\n  {dim('No expenses recorded yet.')} {bold('Add one first!')}")
+        print(f"\n  {dim('No expenses yet.')} {bold('Add one first!')}")
         pause()
         return
 
     section("VIEW ALL EXPENSES")
-    print(f"  {dim('Filters (leave blank to skip):')}")
-    print()
+    print(f"  {dim('Filters (leave blank to skip):')}\n")
     cat_filter = prompt("Category filter").capitalize()
     start = prompt("Start date")
     end = prompt("End date")
@@ -269,65 +217,49 @@ def menu_list(tracker):
     col_styles = [dim, None, cyan, money, dim]
     rows = []
     for e in expenses:
-        rows.append([
-            str(e.id),
-            e.date,
-            e.category,
-            f"{Icon.MONEY}{e.amount:,.2f}",
-            e.description[:30],
-        ])
+        rows.append([str(e.id), e.date, e.category,
+                     f"{ICO_MONEY}{e.amount:,.2f}", e.description[:30]])
 
     print_table(headers, rows, col_styles=col_styles)
-
     total = sum(e.amount for e in expenses)
-    print(f"\n    {bold('Total:')}  {fmt_money_colored(total)}")
+    print(f"\n    {bold('Total:')}  {fmt_money_c(total)}")
     pause()
 
 
 def menu_summary(tracker):
-    """Show overall stats and monthly breakdown."""
     stats = tracker.get_stats()
     if stats["count"] == 0:
-        print(f"\n  {dim('No expenses recorded yet.')} {bold('Add one first!')}")
+        print(f"\n  {dim('No expenses yet.')} {bold('Add one first!')}")
         pause()
         return
 
     section("EXPENSE SUMMARY")
-
     print(f"  {dim('Total expenses:')}  {bold(str(stats['count']))}")
-    total_str = fmt_money_colored(stats["total"])
-    avg_str = fmt_money_colored(stats["average"])
-    high_str = fmt_money_colored(stats["max"])
-    low_str = fmt_money_colored(stats["min"])
-    print(f"  {dim('Total spent:')}     {total_str}")
-    print(f"  {dim('Average:')}         {avg_str}")
-    print(f"  {dim('Highest:')}         {high_str}")
-    print(f"  {dim('Lowest:')}          {low_str}")
+    print(f"  {dim('Total spent:')}     {fmt_money_c(stats['total'])}")
+    print(f"  {dim('Average:')}         {fmt_money_c(stats['average'])}")
+    print(f"  {dim('Highest:')}         {fmt_money_c(stats['max'])}")
+    print(f"  {dim('Lowest:')}          {fmt_money_c(stats['min'])}")
     print(f"  {dim('Categories:')}      {bold(str(stats['categories']))}")
 
     print()
     section("MONTHLY BREAKDOWN")
-    summary = tracker.get_monthly_summary()
-    for month, total in summary.items():
-        print(f"  {bold(month):<10}  {fmt_money_colored(total)}")
+    for month, total in tracker.get_monthly_summary().items():
+        print(f"  {bold(month):<10}  {fmt_money_c(total)}")
 
     if stats["total"] > 0:
         print()
         section("DAILY AVERAGE")
-        first_month = list(summary.keys())[0]
-        num_days = (datetime.now() - datetime.strptime(
-            first_month + "-01", "%Y-%m-%d")).days
-        daily_avg = stats["total"] / max(num_days, 1)
-        print(f"  {dim('Per day:')}  ~{fmt_money_colored(daily_avg)}")
-
+        first = list(tracker.get_monthly_summary().keys())[0]
+        days = (datetime.now() - datetime.strptime(first + "-01", "%Y-%m-%d")).days
+        avg = stats["total"] / max(days, 1)
+        print(f"  {dim('Per day:')}  ~{fmt_money_c(avg)}")
     pause()
 
 
 def menu_categories(tracker):
-    """Show spending breakdown by category with visual bars."""
     breakdown = tracker.get_category_breakdown()
     if not breakdown:
-        print(f"\n  {dim('No expenses recorded yet.')}")
+        print(f"\n  {dim('No expenses yet.')}")
         pause()
         return
 
@@ -335,52 +267,41 @@ def menu_categories(tracker):
     section("CATEGORY BREAKDOWN")
     print()
 
-    max_name_len = max(len(c) for c in breakdown)
-    name_width = max(max_name_len + 1, 12)
+    mw = max(max(len(c) for c in breakdown) + 1, 12)
+    for cat, amt in breakdown.items():
+        pct = (amt / total) * 100 if total > 0 else 0
+        print(f"  {bold(cat):<{mw}} {fmt_bar(amt, total)}  {fmt_money_c(amt):>14}  {fmt_pct(pct)}")
 
-    for category, amount in breakdown.items():
-        pct = (amount / total) * 100 if total > 0 else 0
-        bar = fmt_bar(amount, total)
-        amt_str = fmt_money_colored(amount)
-        pct_str = fmt_percent(pct)
-        print(f"  {bold(category):<{name_width}} {bar}  {amt_str:>14}  {pct_str}")
-
-    print(f"  {dim(Icon.H_LINE * (name_width + 42))}")
-    print(f"  {bold('TOTAL'):<{name_width}} "
-          f"{dim(Icon.LIGHT_SHADE * 20)}  "
-          f"{fmt_money_colored(total):>14}  {dim('100.0%')}")
+    print(f"  {dim(ICO_HLINE * (mw + 42))}")
+    print(f"  {bold('TOTAL'):<{mw}} {dim(ICO_SHADE * 20)}  {fmt_money_c(total):>14}  {dim('100.0%')}")
     pause()
 
 
 def menu_budget(tracker):
-    """Set and view budget progress."""
     section("BUDGET TRACKER")
 
-    # Show existing budgets
     current = tracker.get_budgets()
     if current:
         print(f"\n  {bold('Current budgets:')}")
         for cat, amt in current.items():
-            print(f"    {cyan(cat):<12} = {fmt_money_colored(amt)}")
+            print(f"    {cyan(cat):<12} = {fmt_money_c(amt)}")
 
-    # Set new budgets
     print(f"\n  {bold('Set budgets:')}  {dim('Category=Amount (space-separated)')}")
     print(f"  {dim('Categories:')} {dim(', '.join(tracker.CATEGORIES))}")
     inp = prompt(f"e.g. {dim('Food=5000 Transport=2000')}", default="")
 
     if inp:
-        new_budgets = {}
+        new = {}
         for item in inp.split():
             try:
                 cat, amt = item.split("=")
-                new_budgets[cat.strip().capitalize()] = float(amt)
+                new[cat.strip().capitalize()] = float(amt)
             except ValueError:
-                print(f"  {warning(f'Skipping invalid: {item}')}")
-        if new_budgets:
-            tracker.set_budgets(new_budgets)
+                print(f"  {warning(f'Skipping: {item}')}")
+        if new:
+            tracker.set_budgets(new)
             print(f"  {success('Budgets saved!')}")
 
-    # Show progress
     progress = tracker.get_budget_progress()
     if progress:
         print()
@@ -388,51 +309,44 @@ def menu_budget(tracker):
         print()
         for item in progress:
             cat = item["category"]
-            spent = item["spent"]
-            budget = item["budget"]
+            sp = item["spent"]
+            bud = item["budget"]
             pct = item["percent"]
             over = item["over_budget"]
 
-            if budget > 0:
-                bar = fmt_bar(spent, budget)
-                spent_str = fmt_money_colored(spent)
-                budget_str = fmt_money_colored(budget)
-                pct_str = fmt_percent(pct)
-                status = danger("OVER!") if over else green("OK")
-                print(f"  {bold(cat):<12} {bar}  "
-                      f"{spent_str:>10} / {budget_str:<10}  "
-                      f"{pct_str}  [{status}]")
+            if bud > 0:
+                bar = fmt_bar(sp, bud)
+                sp_str = fmt_money_c(sp)
+                bud_str = fmt_money_c(bud)
+                pct_str = fmt_pct(pct)
+                st = danger("OVER!") if over else green("OK")
+                print(f"  {bold(cat):<12} {bar}  {sp_str:>10} / {bud_str:<10}  {pct_str}  [{st}]")
             else:
-                print(f"  {bold(cat):<12}  {dim(Icon.LIGHT_SHADE * 20)}  "
-                      f"{fmt_money_colored(spent):>10}  {dim('(no budget)')}")
-
+                print(f"  {bold(cat):<12}  {dim(ICO_SHADE * 20)}  {fmt_money_c(sp):>10}  {dim('(no budget)')}")
     pause()
 
 
 def menu_export(tracker):
-    """Export to CSV."""
-    filename = f"expenses_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    filepath = tracker.export_to_csv(filename)
-    print(f"\n  {success(f'Exported to: {filepath}')}")
+    fn = f"expenses_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    fp = tracker.export_to_csv(fn)
+    print(f"\n  {success(f'Exported to: {fp}')}")
     pause()
 
 
-def print_expense_row(expense, indent: int = 2):
-    """Print a single expense row — plain format first, then style."""
+def print_expense_row(expense, indent=2):
     pad = " " * indent
-    id_str = f"[{expense.id:>4}]"
-    cat_str = f"{expense.category:<15}"
-    amt_str = f"{Icon.MONEY}{expense.amount:,.2f}"
-    amt_padded = f"{amt_str:>12}"
-    print(f"  {pad}{dim(id_str)} {expense.date}  {cyan(cat_str)} {money(amt_padded)}")
-    print(f"  {pad} {dim(Icon.ARROW)} {expense.description}")
+    id_fmt = f"[{expense.id:>4}]"
+    cat_fmt = f"{expense.category:<15}"
+    amt_fmt = f"{ICO_MONEY}{expense.amount:,.2f}"
+    amt_str = f"{amt_fmt:>12}"
+    print(f"  {pad}{dim(id_fmt)} {expense.date}  {cyan(cat_fmt)} {money(amt_str)}")
+    print(f"  {pad} {dim(ICO_ARROW)} {expense.description}")
 
 
 def menu_delete(tracker):
-    """Delete an expense."""
     expenses = tracker.get_all_expenses()
     if not expenses:
-        print(f"\n  {dim('No expenses to delete.')}")
+        print(f"\n  {dim('Nothing to delete.')}")
         pause()
         return
 
@@ -444,26 +358,24 @@ def menu_delete(tracker):
         print(f"  {dim(f'... and {len(expenses) - 10} more')}")
 
     print()
-    expense_id = prompt_int("Enter ID to delete", min_val=1)
-
-    confirm = prompt(f"Delete expense [{bold(str(expense_id))}]? (yes/no)")
+    eid = prompt_int("Enter ID to delete", min_val=1)
+    confirm = prompt(f"Delete expense [{bold(str(eid))}]? (yes/no)")
     if confirm.lower() != "yes":
         print(f"  {warning('Cancelled.')}")
         pause()
         return
 
-    if tracker.delete_expense(expense_id):
-        print(f"  {success(f'Expense [ID: {expense_id}] deleted!')}")
+    if tracker.delete_expense(eid):
+        print(f"  {success(f'Expense [ID: {eid}] deleted!')}")
     else:
-        print(f"  {error(f'Expense [ID: {expense_id}] not found.')}")
+        print(f"  {error(f'Expense [ID: {eid}] not found.')}")
     pause()
 
 
 def menu_edit(tracker):
-    """Edit an expense."""
     expenses = tracker.get_all_expenses()
     if not expenses:
-        print(f"\n  {dim('No expenses to edit.')}")
+        print(f"\n  {dim('Nothing to edit.')}")
         pause()
         return
 
@@ -475,58 +387,50 @@ def menu_edit(tracker):
         print(f"  {dim(f'... and {len(expenses) - 10} more')}")
 
     print()
-    expense_id = prompt_int("Enter ID to edit", min_val=1)
-    expense = tracker.get_expense(expense_id)
+    eid = prompt_int("Enter ID to edit", min_val=1)
+    expense = tracker.get_expense(eid)
     if not expense:
-        print(f"  {error(f'Expense [ID: {expense_id}] not found.')}")
+        print(f"  {error(f'Expense [ID: {eid}] not found.')}")
         pause()
         return
 
-    print(f"\n  {bold('Editing')} {dim(f'[ID: {expense_id}]')}")
-    print(f"  {dim('Leave blank to keep current value.')}")
-    print()
+    print(f"\n  {bold('Editing')} {dim(f'[ID: {eid}]')}")
+    print(f"  {dim('Leave blank to keep current value.')}\n")
 
     kwargs = {}
-
-    amt = prompt(f"Amount ({Icon.MONEY})", default=str(expense.amount))
+    amt = prompt(f"Amount ({ICO_MONEY})", default=str(expense.amount))
     if amt != str(expense.amount):
         kwargs["amount"] = float(amt)
-
     cat = prompt("Category", default=expense.category)
     if cat != expense.category:
         kwargs["category"] = cat.capitalize()
-
     desc = prompt("Description", default=expense.description)
     if desc != expense.description:
         kwargs["description"] = desc
-
     date = prompt_date(default=expense.date)
     if date != expense.date:
         kwargs["date"] = date
 
     if kwargs:
-        result = tracker.update_expense(expense_id, **kwargs)
+        result = tracker.update_expense(eid, **kwargs)
         if result:
-            print(f"\n  {success(f'Expense [ID: {expense_id}] updated!')}")
+            print(f"\n  {success(f'Expense [ID: {eid}] updated!')}")
             print_expense_row(result, indent=2)
     else:
         print(f"\n  {yellow('No changes made.')}")
-
     pause()
 
 
 def menu_clear(tracker):
-    """Clear all expenses with confirmation."""
     count = len(tracker.get_all_expenses())
     if count == 0:
-        print(f"\n  {dim('No expenses to clear.')}")
+        print(f"\n  {dim('Nothing to clear.')}")
         pause()
         return
 
     section("CLEAR ALL EXPENSES")
-    print(f"\n  {danger('⚠  DANGER ZONE')}")
-    print(f"  {warning(f'This will PERMANENTLY delete all {bold(str(count))} expenses!')}")
-    print()
+    print(f"\n  {danger('DANGER ZONE')}")
+    print(f"  {warning(f'This will delete all {bold(str(count))} expenses!')}\n")
 
     confirm = prompt("Type 'yes' to confirm")
     if confirm.lower() == "yes":
@@ -537,120 +441,85 @@ def menu_clear(tracker):
     pause()
 
 
-# ─── Main Menu ─────────────────────────────────────────────────────────────
-
 def print_menu():
-    """Print the main menu and return the user's choice."""
-    # The content area between V_LINE chars is 56 chars wide.
-    # With 2-space indent + V_LINE + space, the total line is 59 chars.
-    inner_width = 56
-    left_pad = "  "
-    left_border = f"{left_pad}{Icon.V_LINE} "  # "  │ "
-    right_border = Icon.V_LINE
+    iw = 56
+    lp = "  "
+    lb = f"{lp}{ICO_VLINE} "
+    rb = ICO_VLINE
 
-    def print_menu_line(plain_text: str, styled_text: str):
-        """Print a menu line with correct padding.
-        plain_text is used for length calculation (no ANSI codes).
-        styled_text is used for display (with ANSI codes).
-        """
-        padding = inner_width - len(plain_text) - 1  # -1 for space after left_border
-        print(f"{left_border}{styled_text}{' ' * padding}{right_border}")
+    def pline(plain, styled):
+        pad = iw - len(plain) - 1
+        print(f"{lb}{styled}{' ' * pad}{rb}")
 
-    def print_border(left, right):
-        """Print a horizontal border line."""
-        line = left + Icon.H_LINE * inner_width + right
-        print(f"{left_pad}{bold(dim(line))}")
+    def pbrd(l, r):
+        print(f"{lp}{bold(dim(l + ICO_HLINE * iw + r))}")
 
-    # Top border
-    print_border(Icon.CORNER_TL, Icon.CORNER_TR)
+    pbrd(ICO_TL, ICO_TR)
 
-    # Menu items
     items = [
-        (1, Icon.BULLET, "Add Expense"),
-        (2, Icon.BULLET, "View All Expenses"),
-        (3, Icon.BULLET, "View Summary & Stats"),
-        (4, Icon.BULLET, "Category Breakdown"),
-        (5, Icon.BULLET, "Set & View Budgets"),
-        (6, Icon.BULLET, "Export to CSV"),
-        (7, Icon.BULLET, "Delete Expense"),
-        (8, Icon.BULLET, "Edit Expense"),
-        (9, Icon.BULLET, "Clear All Expenses"),
+        (1, "Add Expense"), (2, "View All Expenses"),
+        (3, "View Summary & Stats"), (4, "Category Breakdown"),
+        (5, "Set & View Budgets"), (6, "Export to CSV"),
+        (7, "Delete Expense"), (8, "Edit Expense"),
+        (9, "Clear All Expenses"),
     ]
+    for num, label in items:
+        plain = f"{ICO_BULLET}  {num}.  {label}"
+        styled = f"{bold(ICO_BULLET)}  {bold(str(num))}.  {label}"
+        pline(plain, styled)
 
-    for num, icon, label in items:
-        plain = f"{icon}  {num}.  {label}"
-        styled = f"{bold(icon)}  {bold(str(num))}.  {label}"
-        print_menu_line(plain, styled)
+    pbrd(ICO_TRT, ICO_TLT)
 
-    # Separator
-    print_border(Icon.T_RIGHT, Icon.T_LEFT)
+    pe = f"  0.  Exit"
+    se = f"  {bold('0')}.  Exit"
+    pline(pe, se)
 
-    # Exit item
-    plain_exit = f"{Icon.EMPTY}  0.  Exit"
-    styled_exit = f"{bold(Icon.EMPTY)}  {bold('0')}.  Exit"
-    print_menu_line(plain_exit, styled_exit)
-
-    # Bottom border
-    print_border(Icon.CORNER_BL, Icon.CORNER_BR)
+    pbrd(ICO_BL, ICO_BR)
 
     print()
     return prompt_int("Your choice", min_val=0, max_val=9)
 
 
 def main():
-    """Main interactive loop."""
-    enable_windows_ansi()
+    enable_ansi()
     tracker = ExpenseTracker()
-    total_expenses = len(tracker.get_all_expenses())
-    first_run = total_expenses == 0
+    te = len(tracker.get_all_expenses())
+    first = te == 0
 
     while True:
         clear()
-        print_app_header()
-
-        if first_run:
+        header()
+        if first:
             print(f"  {green('Welcome!')} {dim('Start by adding your first expense.')}")
-            first_run = False
-
-        print_status_bar(tracker)
+            first = False
+        status_bar(tracker)
         choice = print_menu()
 
         if choice == 0:
             clear()
-            print_app_header()
+            header()
             print()
-            print(f"  {bold('Goodbye!')} {dim('Tracked')} {bold(str(total_expenses))} "
-                  f"{dim('expense(s).')}")
-            print(f"  {dim('Total spent:')} {fmt_money_colored(tracker.get_total_spent())}")
-            print(f"  {dim('Built by')} {bold('ignitezahid')} {dim(Icon.STAR)}")
+            print(f"  {bold('Goodbye!')} {dim('Tracked')} {bold(str(te))} {dim('expense(s).')}")
+            print(f"  {dim('Total spent:')} {fmt_money_c(tracker.get_total_spent())}")
+            print(f"  {dim('Built by')} {bold('ignitezahid')} {dim(ICO_STAR)}")
             print()
             break
-        elif choice == 1:
-            menu_add(tracker)
-        elif choice == 2:
-            menu_list(tracker)
-        elif choice == 3:
-            menu_summary(tracker)
-        elif choice == 4:
-            menu_categories(tracker)
-        elif choice == 5:
-            menu_budget(tracker)
-        elif choice == 6:
-            menu_export(tracker)
-        elif choice == 7:
-            menu_delete(tracker)
-        elif choice == 8:
-            menu_edit(tracker)
-        elif choice == 9:
-            menu_clear(tracker)
+        elif choice == 1: menu_add(tracker)
+        elif choice == 2: menu_list(tracker)
+        elif choice == 3: menu_summary(tracker)
+        elif choice == 4: menu_categories(tracker)
+        elif choice == 5: menu_budget(tracker)
+        elif choice == 6: menu_export(tracker)
+        elif choice == 7: menu_delete(tracker)
+        elif choice == 8: menu_edit(tracker)
+        elif choice == 9: menu_clear(tracker)
 
-        total_expenses = len(tracker.get_all_expenses())
+        te = len(tracker.get_all_expenses())
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print()
         print(f"\n  {bold('Goodbye!')}\n")
         sys.exit(0)
