@@ -10,8 +10,6 @@ from tracker import ExpenseTracker
 
 
 class TestExpenseModel(unittest.TestCase):
-    """Tests for the Expense data model."""
-
     def test_valid_expense(self):
         expense = Expense(amount=25.50, category="Food",
                           description="Lunch", date="2024-01-15")
@@ -50,8 +48,6 @@ class TestExpenseModel(unittest.TestCase):
 
 
 class TestStorage(unittest.TestCase):
-    """Tests for JSON Storage."""
-
     def setUp(self):
         self.tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
         self.tmp.close()
@@ -119,8 +115,6 @@ class TestStorage(unittest.TestCase):
 
 
 class TestExpenseTracker(unittest.TestCase):
-    """Tests for the ExpenseTracker business logic."""
-
     def setUp(self):
         self.tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
         self.tmp.close()

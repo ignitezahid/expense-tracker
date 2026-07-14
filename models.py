@@ -1,18 +1,17 @@
-"""Data models for the Personal Expense Tracker."""
+"""Data models."""
+from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass
 class Expense:
-    """Represents a single expense entry."""
     amount: float
     category: str
     description: str
-    date: str  # YYYY-MM-DD format
-    id: Optional[int] = None
+    date: str  # YYYY-MM-DD
+    id: int | None = None
 
     def __post_init__(self):
         if self.amount < 0:
